@@ -1,7 +1,5 @@
-// internal/data/types.go
 package data
 
-// Status represents an entity's current state
 type Status string
 
 const (
@@ -13,17 +11,24 @@ const (
 	StatusStruggling Status = "struggling"
 )
 
-// Action represents decisions made by entity brains
 type Action string
 
 const (
-	ActionExplore Action = "explore"
-	ActionInspect Action = "inspect"
-	ActionMove    Action = "move"
-	ActionWait    Action = "wait"
+	ActionExplore     Action = "explore"
+	ActionMove        Action = "move"
+	ActionInspect     Action = "inspect"
+	ActionWait        Action = "wait"
+	ActionGather      Action = "gather"
+	ActionCommunicate Action = "communicate"
+	ActionHeal        Action = "heal"
+	ActionRest        Action = "rest"
+	ActionHide        Action = "hide"
+	ActionAttack      Action = "attack"
+	ActionSocialize   Action = "socialize"
+	ActionPatrol      Action = "patrol"
+	ActionRelocate    Action = "relocate"
 )
 
-// EnvironmentState tracks the overall simulation environment
 type EnvironmentState string
 
 const (
@@ -33,7 +38,6 @@ const (
 	StateCollapse EnvironmentState = "collapse"
 )
 
-// EntityParams holds default entity configuration
 type EntityParams struct {
 	InitialHealth             float64 `json:"initial_health"`
 	InitialEnergy             float64 `json:"initial_energy"`
@@ -55,7 +59,6 @@ type EntityParams struct {
 	Adaptability              float64 `json:"adaptability"`
 }
 
-// WorldConfig holds simulation world settings
 type WorldConfig struct {
 	Name                 string  `json:"name"`
 	MemoryWindow         int     `json:"memory_window"`
