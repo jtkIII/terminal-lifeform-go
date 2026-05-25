@@ -21,7 +21,7 @@ func NewServer(s *sim.Simulation) *Server {
 func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/health", s.handleHealth)
 	s.mux.HandleFunc("/status", s.handleStatus)
-	s.mux.HandleFunc("/entities", s.handleEntities)events
+	s.mux.HandleFunc("/entities", s.handleEntities)
 	s.mux.HandleFunc("/epoch", s.handleEpoch)
 	s.mux.HandleFunc("/dump", s.handleDump)
 	s.mux.HandleFunc("/events", s.handleEvents)
