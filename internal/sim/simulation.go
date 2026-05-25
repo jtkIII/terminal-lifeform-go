@@ -2,6 +2,7 @@ package sim
 
 import (
 	"context"
+	"fmt"
 	"math/rand/v2"
 	"sync"
 	"time"
@@ -11,6 +12,25 @@ import (
 	"github.com/jtkIII/terminal-lifeform-go/internal/entity"
 	"github.com/jtkIII/terminal-lifeform-go/internal/handlers"
 )
+
+// type EventType string
+
+// const (
+// 	EventBirth     EventType = "birth"
+// 	EventDeath     EventType = "death"
+// 	EventWar       EventType = "war"
+// 	EventBabyBoom  EventType = "baby_boom"
+// 	EventActOfGod  EventType = "act_of_god"
+// 	EventReproduce EventType = "reproduce"
+// )
+
+type SimulationEvent struct {
+	Type      data.EventType `json:"type"`
+	Epoch     int            `json:"epoch"`
+	EntityID  string         `json:"entity_id,omitempty"`
+	Details   string         `json:"details,omitempty"`
+	Timestamp time.Time      `json:"timestamp"`
+}
 
 type Simulation struct {
 	mu                sync.RWMutex
@@ -31,9 +51,9 @@ type Simulation struct {
 	cancel            context.CancelFunc
 	done              chan struct{}
 	Handlers          *handlers.Handlers
-}
+	Events            []SimulationEvent `json:"-"` // Not serialized in dump, but accessible via API
 
-// internal/sim/simulation.go
+}
 
 func NewSimulation(world *data.WorldConfig, initEntities, totalEpochs int) *Simulation {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -62,7 +82,7 @@ func NewSimulation(world *data.WorldConfig, initEntities, totalEpochs int) *Simu
 	}
 
 	// 2. Initialize entities
-	for i := 0; i < initEntities; i++ {
+	for range initEntities {
 		params := &data.EntityParams{
 			InitialHealth:             50,
 			InitialEnergy:             50,
@@ -103,11 +123,7 @@ func (s *Simulation) IncrementEpoch() {
 	s.EpochCount++
 }
 
-// SetEnvFactor sets a specific environment factor (thread-safe)
 func (s *Simulation) SetEnvFactor(key string, value float64) {
-	// s.mu.Lock()
-	// defer s.mu.Unlock()
-
 	if s.EnvFactors == nil {
 		s.EnvFactors = make(map[string]float64)
 	}
@@ -137,41 +153,38 @@ func (s *Simulation) tick() {
 
 	s.EpochCount++
 
-	// 1. Handle environment changes
 	s.Handlers.HandleEnvironment()
-
-	// 2. Process entity interactions
 	s.Handlers.HandleInteractions(s.Entities)
 
-	// 3. Handle reproduction
 	s.Entities = s.Handlers.HandleReproduction(s.Entities)
-
-	// 4. Check for baby boom events
 	s.Entities = s.Handlers.HandleBabyBoom(s.Entities)
 
-	// 5. Process individual entity status updates
+	// 	process individual entity status updates
 	for _, ent := range s.Entities {
 		ent.UpdateStatus()
 	}
 
-	// 6. Handle special events (war/god)
+	// handle special events (war/god)
 	if rand.Float64() < 0.05 { // 5% chance per epoch
 		s.Handlers.HandleActOfWar(s.Entities)
+
 	}
 	if rand.Float64() < 0.02 { // 2% chance per epoch
 		s.Handlers.HandleActOfGod(s.Entities)
 	}
 
-	// 7. Filter dead entities
+	// Filter dead entities
 	var survivors []*entity.Entity
 	for _, ent := range s.Entities {
 		if ent.IsAlive() {
 			survivors = append(survivors, ent)
+		} else {
+			s.LogEvent(data.EventDeath, ent.ID, fmt.Sprintf("%s died at age %.1f", ent.Name, ent.Age))
 		}
 	}
 	s.Entities = survivors
 
-	// 8. Track population
+	// Track population
 	pop := len(s.Entities)
 	s.PopulationHistory = append(s.PopulationHistory, pop)
 	if len(s.PopulationHistory) > s.MemoryWindow {
@@ -189,9 +202,7 @@ func (s *Simulation) TickOnce() {
 	s.tick()
 }
 
-// internal/sim/simulation.go
-
-// GetEnvFactor returns a specific environment factor (NO LOCK - caller must hold lock)
+// Returns a specific environment factor (NO LOCK - caller must hold lock)
 func (s *Simulation) GetEnvFactor(key string) float64 {
 	if s.EnvFactors == nil {
 		return 0.0
@@ -202,7 +213,7 @@ func (s *Simulation) GetEnvFactor(key string) float64 {
 	return 0.0
 }
 
-// GetEntities returns a copy of entities (NO LOCK - caller must hold lock)
+// Returns a copy of entities (NO LOCK - caller must hold lock)
 func (s *Simulation) GetEntities() []*entity.Entity {
 	if s.Entities == nil {
 		return []*entity.Entity{}
@@ -212,7 +223,7 @@ func (s *Simulation) GetEntities() []*entity.Entity {
 	return result
 }
 
-// GetEntropy returns the current entropy rate (NO LOCK - caller must hold lock)
+// Returns the current entropy rate (NO LOCK - caller must hold lock)
 func (s *Simulation) GetEntropy() float64 {
 	return s.EntropyRate
 }
@@ -234,7 +245,7 @@ func (s *Simulation) GetStatus() map[string]interface{} {
 	}
 }
 
-// GetEntitiesPublic is the public API version that locks
+// The public API version that locks
 func (s *Simulation) GetEntitiesPublic() []*entity.Entity {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -242,4 +253,19 @@ func (s *Simulation) GetEntitiesPublic() []*entity.Entity {
 	result := make([]*entity.Entity, len(s.Entities))
 	copy(result, s.Entities)
 	return result
+}
+
+// LogEvent logs a simulation event
+func (s *Simulation) LogEvent(eventType data.EventType, entityID string, details string) {
+	s.Events = append(s.Events, SimulationEvent{
+		Type:      eventType,
+		Epoch:     s.EpochCount,
+		EntityID:  entityID,
+		Details:   details,
+		Timestamp: time.Now(),
+	})
+
+	if len(s.Events) > 1000 {
+		s.Events = s.Events[len(s.Events)-1000:]
+	}
 }

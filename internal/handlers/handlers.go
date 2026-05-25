@@ -2,9 +2,11 @@
 package handlers
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 
+	"github.com/jtkIII/terminal-lifeform-go/internal/data"
 	"github.com/jtkIII/terminal-lifeform-go/internal/entity"
 )
 
@@ -15,6 +17,7 @@ type SimulationRef interface {
 	SetEnvFactor(key string, value float64)
 	GetEntropy() float64
 	// IncrementEpoch()
+	LogEvent(eventType data.EventType, entityID string, details string)
 }
 
 // Handlers manages all entity interactions and events
@@ -175,12 +178,10 @@ func (h *Handlers) HandleBabyBoom(entities []*entity.Entity) []*entity.Entity {
 	return entities
 }
 
-// HandleActOfWar processes aggressive events
 func (h *Handlers) HandleActOfWar(entities []*entity.Entity) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// Find all Creed entities
 	var creeds []*entity.Entity
 	for _, ent := range entities {
 		if ent.Affinity == "Creed" && ent.IsAlive() {
@@ -188,39 +189,44 @@ func (h *Handlers) HandleActOfWar(entities []*entity.Entity) {
 		}
 	}
 
-	// Creeds attack weaker entities
 	for _, creed := range creeds {
 		for _, target := range entities {
 			if target.ID != creed.ID && target.IsAlive() && target.Health < creed.Health {
 				if rand.Float64() < 0.3 {
 					target.Health -= 20
 					creed.Energy += 10
+					// FIX: Use h.sim.LogEvent
+					h.sim.LogEvent(data.EventWar, creed.ID, fmt.Sprintf("%s attacked a weaker entity", creed.Name))
 				}
 			}
 		}
 	}
 }
 
-// HandleActOfGod processes environmental disaster events
+// In HandleActOfGod
 func (h *Handlers) HandleActOfGod(entities []*entity.Entity) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// Random chance of environmental event
 	if rand.Float64() < 0.02 {
 		eventType := rand.Intn(4)
+		eventNames := []string{"meteor", "resource_surge", "pollution_spike", "temp_shift"}
+
+		// FIX: Use h.sim.LogEvent
+		h.sim.LogEvent(data.EventActOfGod, "", fmt.Sprintf("Act of God: %s occurred", eventNames[eventType]))
+
 		switch eventType {
-		case 0: // Meteor strike - random damage
+		case 0:
 			for _, ent := range entities {
 				if rand.Float64() < 0.1 {
 					ent.Health -= 30
 				}
 			}
-		case 1: // Resource surge
+		case 1:
 			h.sim.SetEnvFactor("resource_availability", h.sim.GetEnvFactor("resource_availability")+20)
-		case 2: // Pollution spike
+		case 2:
 			h.sim.SetEnvFactor("pollution", h.sim.GetEnvFactor("pollution")+15)
-		case 3: // Temperature shift
+		case 3:
 			h.sim.SetEnvFactor("temperature", h.sim.GetEnvFactor("temperature")+5)
 		}
 	}

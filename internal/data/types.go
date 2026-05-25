@@ -69,3 +69,14 @@ type WorldConfig struct {
 	ResourceAvailability float64 `json:"resource_availability"`
 	MutationRate         float64 `json:"mutation_rate"`
 }
+
+type EventType string
+
+const (
+	EventBirth     EventType = "birth"
+	EventDeath     EventType = "death"
+	EventWar       EventType = "war"
+	EventBabyBoom  EventType = "baby_boom"
+	EventActOfGod  EventType = "act_of_god"
+	EventReproduce EventType = "reproduce"
+)

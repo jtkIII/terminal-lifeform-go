@@ -21,9 +21,10 @@ func NewServer(s *sim.Simulation) *Server {
 func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/health", s.handleHealth)
 	s.mux.HandleFunc("/status", s.handleStatus)
-	s.mux.HandleFunc("/entities", s.handleEntities)
+	s.mux.HandleFunc("/entities", s.handleEntities)events
 	s.mux.HandleFunc("/epoch", s.handleEpoch)
 	s.mux.HandleFunc("/dump", s.handleDump)
+	s.mux.HandleFunc("/events", s.handleEvents)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -62,4 +63,20 @@ func (s *Server) handleDump(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) Run(addr string) error {
 	return http.ListenAndServe(addr, s.mux)
+}
+
+func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get last N events (e.g., last 50)
+	limit := 50
+	events := s.sim.Events
+	if len(events) > limit {
+		events = events[len(events)-limit:]
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"events": events,
+		"total":  len(s.sim.Events),
+	})
 }
